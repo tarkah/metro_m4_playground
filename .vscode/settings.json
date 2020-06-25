@@ -1,0 +1,10 @@
+{
+    "rust-analyzer.checkOnSave.command": "check",
+    "rust-analyzer.trace.extension": true,
+    "rust-analyzer.trace.server": "verbose",
+    "rust-analyzer.checkOnSave.allTargets": true,
+    "rust-analyzer.checkOnSave.extraArgs": [
+        "--target",
+        "thumbv7em-none-eabihf"
+    ],
+}

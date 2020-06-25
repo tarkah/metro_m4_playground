@@ -1,0 +1,29 @@
+[package]
+name = "metro_m4_ext"
+version = "0.1.0"
+authors = ["Cory Forsstrom <cforsstrom18@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+cortex-m-rt = "0.6.12"
+cortex-m = "0.6.2"
+embedded-hal = "0.2.4"
+metro_m4 = { path = "../atsamd/boards/metro_m4", features = ['usb'] }
+
+# Alphanum display
+adafruit-alphanum4 = { version = "0.1.2", optional = true }
+ht16k33 = { version = "0.4.0", default-features = false, optional = true }
+
+# USB Serial
+usb-device = { version = "0.2.5", optional = true }
+usbd-serial = { version = "0.1.0", optional = true }
+
+[dev-dependencies]
+panic-halt = "0.2.0"
+nb = "0.1.2"
+
+[features]
+default = []
+alphanum = ["adafruit-alphanum4", "ht16k33"]
+usb_serial = ["usb-device", "usbd-serial"]
