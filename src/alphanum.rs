@@ -35,16 +35,16 @@ where
     fn display(&mut self, buffer: &[u8]) {
         let drivers = self.drivers();
 
-        for (n, i) in buffer.iter().enumerate() {
+        for (n, b) in buffer.iter().enumerate() {
             let index: Index = (n as u8 % 4).into();
 
-            let ascii = if i.is_ascii() {
-                unsafe { AsciiChar::from_ascii_unchecked(*i) }
+            let ascii = if b.is_ascii() {
+                unsafe { AsciiChar::from_ascii_unchecked(*b) }
             } else {
                 AsciiChar::Null
             };
 
-            let driver = &mut drivers[n / (4 * drivers.len())];
+            let driver = &mut drivers[n / 4];
 
             driver.update_buffer_with_char(index, ascii);
         }
@@ -68,8 +68,8 @@ where
                 buffer.swap(n - 1, n);
             }
 
-            // Push byte into buffer
-            buffer[11] = *b;
+            // Update last byte
+            buffer[num_drivers * 4 - 1] = *b;
 
             // Display buffer
             self.display(buffer);
