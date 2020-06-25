@@ -1,0 +1,1 @@
+Repository for playing with the [Metro M4](https://learn.adafruit.com/adafruit-metro-m4-express-featuring-atsamd51/overview) microcontroller using Rust.
