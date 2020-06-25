@@ -9,7 +9,7 @@ edition = "2018"
 cortex-m-rt = "0.6.12"
 cortex-m = "0.6.2"
 embedded-hal = "0.2.4"
-metro_m4 = { path = "../atsamd/boards/metro_m4", features = ['usb'] }
+metro_m4 = { path = "../external/atsamd/boards/metro_m4", features = ['usb'] }
 
 # Alphanum display
 adafruit-alphanum4 = { version = "0.1.2", optional = true }
