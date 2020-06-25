@@ -3,6 +3,7 @@ use crate::hal::gpio::{Floating, Input, Pa24, Pa25, Port};
 use crate::hal::pac::{interrupt, MCLK, USB};
 use crate::hal::usb::UsbBus;
 
+use cortex_m::peripheral::NVIC;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::prelude::*;
 use usbd_serial::{DefaultBufferStore, SerialPort, USB_CLASS_CDC};
@@ -29,14 +30,18 @@ macro_rules! serial_print {
                 );
             }
 
-            for (n, x) in $crate::usb_serial::SERIAL_WRITE_BUF[0..count]
+            for (n, b) in $crate::usb_serial::SERIAL_WRITE_BUF[0..count]
                 .iter_mut()
                 .enumerate()
             {
-                *x = bytes[n];
+                *b = bytes[n];
             }
 
             $crate::usb_serial::SERIAL_WRITE_LEN = count;
+
+            // Test back to back prints with 256 bytes to see if entire message
+            // gets sent before next print overwrites
+            //while $crate::usb_serial::SERIAL_WRITE_LEN > 0 {}
         });
     }};
 }
@@ -48,10 +53,13 @@ pub fn init(
     usb_dm: Pa24<Input<Floating>>,
     usb_dp: Pa25<Input<Floating>>,
     port: &mut Port,
+    nvic: &mut NVIC,
 ) {
     // Setup USB Serial Device
     let bus_allocator = unsafe {
-        USB_ALLOCATOR = Some(crate::hal::usb_bus(usb, clocks, mclk, usb_dm, usb_dp, port));
+        USB_ALLOCATOR = Some(crate::hal::usb_allocator(
+            usb, clocks, mclk, usb_dm, usb_dp, port,
+        ));
         USB_ALLOCATOR.as_ref().unwrap()
     };
 
@@ -65,6 +73,15 @@ pub fn init(
                 .device_class(USB_CLASS_CDC)
                 .build(),
         );
+    }
+
+    unsafe {
+        nvic.set_priority(interrupt::USB_OTHER, 1);
+        nvic.set_priority(interrupt::USB_TRCPT0, 1);
+        nvic.set_priority(interrupt::USB_TRCPT1, 1);
+        NVIC::unmask(interrupt::USB_OTHER);
+        NVIC::unmask(interrupt::USB_TRCPT0);
+        NVIC::unmask(interrupt::USB_TRCPT1);
     }
 
     serial_print!("USB Serial Device Initialized!\n");

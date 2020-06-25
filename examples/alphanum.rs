@@ -20,7 +20,7 @@ use ht16k33::HT16K33;
 fn main() -> ! {
     // General setup
     let mut peripherals = Peripherals::take().unwrap();
-    let core = CorePeripherals::take().unwrap();
+    let mut core = CorePeripherals::take().unwrap();
     let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.MCLK,
@@ -41,6 +41,7 @@ fn main() -> ! {
         pins.usb_dm,
         pins.usb_dp,
         &mut pins.port,
+        &mut core.NVIC,
     );
 
     // Setup AlphaNum Backpack Display (only using 1)

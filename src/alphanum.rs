@@ -17,6 +17,10 @@ where
     E: core::fmt::Debug,
 {
     pub fn new(drivers: &'a mut [HT16K33<I2C>]) -> MultiDisplay<'a, I2C> {
+        if drivers.len() > MAX_DRIVERS {
+            panic!("Can't use more than 10 drivers with this struct")
+        }
+
         for driver in drivers.iter_mut() {
             driver.initialize().unwrap();
         }

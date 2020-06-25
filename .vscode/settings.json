@@ -11,4 +11,5 @@
         "usb_serial",
         "alphanum"
     ],
+    "rust-analyzer.cargo.allFeatures": true,
 }
