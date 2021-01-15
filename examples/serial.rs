@@ -6,7 +6,7 @@ use metro_m4_ext as hal_ext;
 use panic_halt as _;
 
 use hal::entry;
-use hal::pac::{CorePeripherals, Peripherals};
+use hal::pac::{interrupt, CorePeripherals, Peripherals};
 use hal::prelude::*;
 use hal::{clock::GenericClockController, delay::Delay};
 use hal_ext::{serial_print, usb_serial};
@@ -40,23 +40,31 @@ fn main() -> ! {
     );
 
     loop {
-        //red_led.set_low().unwrap();
-        //delay.delay_ms(200u8);
-        //red_led.set_high().unwrap();
-        delay.delay_ms(5000u16);
+        red_led.set_low().unwrap();
+        delay.delay_ms(200u8);
+        red_led.set_high().unwrap();
+        delay.delay_ms(200u8);
 
-        cortex_m::interrupt::free(|_| unsafe {
-            let avail = usb_serial::recv_buf_len();
-
-            if avail > 0 {
-                let mut buf = [0; 256];
-
-                usb_serial::read_recv(&mut buf, avail);
-
-                let b = &buf[0..avail];
-
-                serial_print!(b);
-            }
-        });
+        serial_print!(b"I'm working\n\r");
     }
+}
+
+#[interrupt]
+fn USB_TRCPT0() {
+    usb_serial::default_poll_usb();
+}
+
+#[interrupt]
+fn USB_TRCPT1() {
+    usb_serial::default_poll_usb();
+}
+
+#[interrupt]
+fn USB_SOF_HSOF() {
+    usb_serial::default_poll_usb();
+}
+
+#[interrupt]
+fn USB_OTHER() {
+    usb_serial::default_poll_usb();
 }

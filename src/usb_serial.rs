@@ -13,9 +13,6 @@ static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
 pub static mut USB_BUS: Option<UsbDevice<UsbBus>> = None;
 pub static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
 
-static mut RECV_BUF: [u8; 256] = [0; 256];
-static mut RECV_IDX: usize = 0;
-
 #[macro_export]
 macro_rules! serial_println {
     ($str: tt) => {{
@@ -82,57 +79,16 @@ pub fn init(
     }
 }
 
-pub unsafe fn recv_buf_len() -> usize {
-    RECV_IDX
-}
-
-pub unsafe fn read_recv(buf: &mut [u8], n: usize) {
-    for x in 0..n.min(RECV_IDX) {
-        buf[x] = RECV_BUF[x];
-    }
-
-    RECV_BUF.rotate_left(n);
-
-    RECV_IDX = RECV_IDX - n.min(RECV_IDX);
-}
-
-fn poll_usb() {
+pub fn default_poll_usb() {
     unsafe {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_SERIAL.as_mut().map(|serial| {
                 if usb_dev.poll(&mut [serial]) {
                     // Make the other side happy
                     let mut buf = [0u8; 256];
-
-                    if let Ok(n) = serial.read(&mut buf) {
-                        for x in 0..n {
-                            RECV_BUF[RECV_IDX] = buf[x];
-
-                            RECV_IDX = (RECV_IDX + 1) % 256;
-                        }
-                    }
+                    let _ = serial.read(&mut buf);
                 }
             });
         });
     }
-}
-
-#[interrupt]
-fn USB_TRCPT0() {
-    poll_usb();
-}
-
-#[interrupt]
-fn USB_TRCPT1() {
-    poll_usb();
-}
-
-#[interrupt]
-fn USB_SOF_HSOF() {
-    poll_usb();
-}
-
-#[interrupt]
-fn USB_OTHER() {
-    poll_usb();
 }
