@@ -9,9 +9,10 @@ use hal::entry;
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
 use hal::{clock::GenericClockController, delay::Delay};
-use hal_ext::alphanum::{Display, MultiDisplay};
+use hal_ext::alphanum::{Display, MultiDisplay, DISP_I2C_ADDR};
+use adafruit_alphanum4::{AlphaNum4, Index, AsciiChar};
 
-use ht16k33::HT16K33;
+use ht16k33::{HT16K33};
 
 #[entry]
 fn main() -> ! {
@@ -41,9 +42,9 @@ fn main() -> ! {
 
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
-    let mut displays = [HT16K33::new(i2c, 112)];
+    let mut displays = [HT16K33::new(i2c, DISP_I2C_ADDR)];
     let mut multidisplay = MultiDisplay::new(&mut displays);
-    multidisplay.marquee("hello", &mut delay, 50);
+    multidisplay.marquee("IM WORKING!", &mut delay, 500);
 
     loop {
         red_led.set_high().unwrap();

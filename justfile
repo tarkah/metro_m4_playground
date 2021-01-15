@@ -8,8 +8,8 @@ example-serial:
     gdb target/thumbv7em-none-eabihf/debug/examples/serial
 
 example-alphanum:
-    cargo build --example alpha --features usb_serial,alphanum
-    gdb target/thumbv7em-none-eabihf/debug/examples/alpha
+    cargo build --example alpha --features usb_serial,alphanum --release
+    gdb target/thumbv7em-none-eabihf/release/examples/alpha
 
 example-rainbow:
     cargo build --example neopixel_rainbow --release

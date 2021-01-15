@@ -23,6 +23,12 @@ where
 
         for driver in drivers.iter_mut() {
             driver.initialize().unwrap();
+            driver.set_display(ht16k33::Display::ON).unwrap();
+            driver.update_buffer_with_char(Index::One, AsciiChar::Space);
+            driver.update_buffer_with_char(Index::Two, AsciiChar::Space);
+            driver.update_buffer_with_char(Index::Three, AsciiChar::Space);
+            driver.update_buffer_with_char(Index::Four, AsciiChar::Space);
+            driver.write_display_buffer().unwrap();
         }
 
         MultiDisplay { drivers }
@@ -61,7 +67,7 @@ where
     fn marquee(&mut self, text: &str, delay: &mut Delay, delay_ms: u16) {
         let num_drivers = self.drivers().len();
 
-        let mut _buf = [0; MAX_DRIVERS];
+        let mut _buf = [32; MAX_DRIVERS];
         let buffer = &mut _buf[0..num_drivers * 4];
 
         let bytes = text.as_bytes();

@@ -9,7 +9,7 @@
             "request": "launch",
             "servertype": "jlink",
             "name": "Attach to gdbserver",
-            "executable": "./target/thumbv7em-none-eabihf/debug/examples/alpha",
+            "executable": "./target/thumbv7em-none-eabihf/release/examples/alpha",
             "serverpath": "/opt/jlink/JLinkGDBServer",
             "cwd": "${workspaceRoot}",
             "runToMain": true,
