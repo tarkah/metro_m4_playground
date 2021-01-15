@@ -1,7 +1,5 @@
 #![no_std]
 
-use metro_m4 as hal;
-
 #[cfg(feature = "alphanum")]
 pub mod alphanum;
 

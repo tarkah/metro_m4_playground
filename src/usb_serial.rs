@@ -1,47 +1,44 @@
-use crate::hal::clock::GenericClockController;
-use crate::hal::gpio::{Floating, Input, Pa24, Pa25, Port};
-use crate::hal::pac::{interrupt, MCLK, USB};
-use crate::hal::usb::UsbBus;
+use metro_m4 as hal;
+use metro_m4::clock::GenericClockController;
+use metro_m4::gpio::{Floating, Input, Pa24, Pa25, Port};
+use metro_m4::pac::{interrupt, MCLK, USB};
+use metro_m4::usb::UsbBus;
 
 use cortex_m::peripheral::NVIC;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::prelude::*;
-use usbd_serial::{DefaultBufferStore, SerialPort, USB_CLASS_CDC};
-
-pub const SERIAL_WRITE_BUF_LEN: usize = 256;
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
-static mut USB_BUS: Option<UsbDevice<UsbBus>> = None;
-static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
-pub static mut SERIAL_WRITE_BUF: [u8; SERIAL_WRITE_BUF_LEN] = [0; SERIAL_WRITE_BUF_LEN];
-pub static mut SERIAL_WRITE_LEN: usize = 0;
+pub static mut USB_BUS: Option<UsbDevice<UsbBus>> = None;
+pub static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
+
+static mut RECV_BUF: [u8; 256] = [0; 256];
+static mut RECV_IDX: usize = 0;
+
+#[macro_export]
+macro_rules! serial_println {
+    ($str: tt) => {{
+        cortex_m::interrupt::free(|_| unsafe {
+            $crate::usb_serial::USB_BUS.as_mut().map(|_| {
+                $crate::usb_serial::USB_SERIAL.as_mut().map(|serial| {
+                    let _ = serial.write($str);
+                    let _ = serial.write(b"\n\r");
+                });
+            })
+        });
+    }};
+}
 
 #[macro_export]
 macro_rules! serial_print {
     ($str: tt) => {{
         cortex_m::interrupt::free(|_| unsafe {
-            let bytes = $str.as_bytes();
-            let count = bytes.len();
-
-            if count > $crate::usb_serial::SERIAL_WRITE_BUF_LEN {
-                panic!(
-                    "String more than {} bytes",
-                    $crate::usb_serial::SERIAL_WRITE_BUF_LEN
-                );
-            }
-
-            for (n, b) in $crate::usb_serial::SERIAL_WRITE_BUF[0..count]
-                .iter_mut()
-                .enumerate()
-            {
-                *b = bytes[n];
-            }
-
-            $crate::usb_serial::SERIAL_WRITE_LEN = count;
-
-            // Test back to back prints with 256 bytes to see if entire message
-            // gets sent before next print overwrites
-            //while $crate::usb_serial::SERIAL_WRITE_LEN > 0 {}
+            $crate::usb_serial::USB_BUS.as_mut().map(|_| {
+                $crate::usb_serial::USB_SERIAL.as_mut().map(|serial| {
+                    let _ = serial.write($str);
+                });
+            })
         });
     }};
 }
@@ -57,16 +54,14 @@ pub fn init(
 ) {
     // Setup USB Serial Device
     let bus_allocator = unsafe {
-        USB_ALLOCATOR = Some(crate::hal::usb_allocator(
-            usb, clocks, mclk, usb_dm, usb_dp, port,
-        ));
+        USB_ALLOCATOR = Some(hal::usb_allocator(usb_dm, usb_dp, usb, clocks, mclk, port));
         USB_ALLOCATOR.as_ref().unwrap()
     };
 
     unsafe {
         USB_SERIAL = Some(SerialPort::new(&bus_allocator));
         USB_BUS = Some(
-            UsbDeviceBuilder::new(&bus_allocator, UsbVidPid(0x16c0, 0x27dd))
+            UsbDeviceBuilder::new(&bus_allocator, UsbVidPid(0x2222, 0x3333))
                 .manufacturer("Fake company")
                 .product("Serial port")
                 .serial_number("TEST")
@@ -76,15 +71,29 @@ pub fn init(
     }
 
     unsafe {
-        nvic.set_priority(interrupt::USB_OTHER, 1);
         nvic.set_priority(interrupt::USB_TRCPT0, 1);
-        nvic.set_priority(interrupt::USB_TRCPT1, 1);
-        NVIC::unmask(interrupt::USB_OTHER);
         NVIC::unmask(interrupt::USB_TRCPT0);
+        nvic.set_priority(interrupt::USB_TRCPT1, 1);
         NVIC::unmask(interrupt::USB_TRCPT1);
+        nvic.set_priority(interrupt::USB_SOF_HSOF, 1);
+        NVIC::unmask(interrupt::USB_SOF_HSOF);
+        nvic.set_priority(interrupt::USB_OTHER, 1);
+        NVIC::unmask(interrupt::USB_OTHER);
+    }
+}
+
+pub unsafe fn recv_buf_len() -> usize {
+    RECV_IDX
+}
+
+pub unsafe fn read_recv(buf: &mut [u8], n: usize) {
+    for x in 0..n.min(RECV_IDX) {
+        buf[x] = RECV_BUF[x];
     }
 
-    serial_print!("USB Serial Device Initialized!\n");
+    RECV_BUF.rotate_left(n);
+
+    RECV_IDX = RECV_IDX - n.min(RECV_IDX);
 }
 
 fn poll_usb() {
@@ -92,39 +101,20 @@ fn poll_usb() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_SERIAL.as_mut().map(|serial| {
                 if usb_dev.poll(&mut [serial]) {
-                    serial_write(serial);
+                    // Make the other side happy
+                    let mut buf = [0u8; 256];
+
+                    if let Ok(n) = serial.read(&mut buf) {
+                        for x in 0..n {
+                            RECV_BUF[RECV_IDX] = buf[x];
+
+                            RECV_IDX = (RECV_IDX + 1) % 256;
+                        }
+                    }
                 }
             });
         });
     }
-}
-
-unsafe fn serial_write(serial: &mut SerialPort<UsbBus, DefaultBufferStore, DefaultBufferStore>) {
-    if SERIAL_WRITE_LEN > 0 {
-        if let Ok(count) = serial.write(&SERIAL_WRITE_BUF[0..SERIAL_WRITE_LEN]) {
-            if count < SERIAL_WRITE_LEN {
-                let remaining = SERIAL_WRITE_LEN - count;
-
-                for (n, x) in SERIAL_WRITE_BUF.iter_mut().enumerate() {
-                    if n < remaining {
-                        *x = SERIAL_WRITE_BUF[n + count];
-                    }
-                }
-
-                SERIAL_WRITE_LEN = remaining;
-            } else {
-                SERIAL_WRITE_LEN = 0;
-                for x in SERIAL_WRITE_BUF.iter_mut() {
-                    *x = 0
-                }
-            }
-        }
-    }
-}
-
-#[interrupt]
-fn USB_OTHER() {
-    poll_usb();
 }
 
 #[interrupt]
@@ -134,5 +124,15 @@ fn USB_TRCPT0() {
 
 #[interrupt]
 fn USB_TRCPT1() {
+    poll_usb();
+}
+
+#[interrupt]
+fn USB_SOF_HSOF() {
+    poll_usb();
+}
+
+#[interrupt]
+fn USB_OTHER() {
     poll_usb();
 }

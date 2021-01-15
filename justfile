@@ -8,8 +8,12 @@ example-serial:
     gdb target/thumbv7em-none-eabihf/debug/examples/serial
 
 example-alphanum:
-    cargo build --example alphanum --features usb_serial,alphanum
-    gdb target/thumbv7em-none-eabihf/debug/examples/alphanum
+    cargo build --example alpha --features usb_serial,alphanum
+    gdb target/thumbv7em-none-eabihf/debug/examples/alpha
+
+example-rainbow:
+    cargo build --example neopixel_rainbow --release
+    gdb target/thumbv7em-none-eabihf/release/examples/neopixel_rainbow
 
 jlink:
-    DISPLAY=:0.0 JLinkGDBServer -if SWD -device ATSAMD21G18
+    DISPLAY=:0.0 JLinkGDBServer -if SWD -device atsamd51j19a

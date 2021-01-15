@@ -1,0 +1,20 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "jlink",
+            "name": "Attach to gdbserver",
+            "executable": "./target/thumbv7em-none-eabihf/debug/examples/alpha",
+            "serverpath": "/opt/jlink/JLinkGDBServer",
+            "cwd": "${workspaceRoot}",
+            "runToMain": true,
+            "device": "atsamd51j19",
+            "armToolchainPath": "/usr/bin"
+        }
+    ]
+}

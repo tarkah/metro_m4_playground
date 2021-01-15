@@ -1,8 +1,8 @@
-use crate::hal::delay::Delay;
 use adafruit_alphanum4::{AlphaNum4, AsciiChar, Index};
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c;
 use ht16k33::HT16K33;
+use metro_m4::delay::Delay;
 
 pub const DISP_I2C_ADDR: u8 = 112;
 const MAX_DRIVERS: usize = 10;

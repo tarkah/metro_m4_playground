@@ -13,10 +13,9 @@ use hal_ext::{serial_print, usb_serial};
 
 #[entry]
 fn main() -> ! {
-    // General setup
     let mut peripherals = Peripherals::take().unwrap();
     let mut core = CorePeripherals::take().unwrap();
-    let mut clocks = GenericClockController::with_external_32kosc(
+    let mut clocks = GenericClockController::with_internal_32kosc(
         peripherals.GCLK,
         &mut peripherals.MCLK,
         &mut peripherals.OSC32KCTRL,
@@ -25,8 +24,10 @@ fn main() -> ! {
     );
     let mut pins = hal::Pins::new(peripherals.PORT);
 
-    // Setup delay
     let mut delay = Delay::new(core.SYST, &mut clocks);
+
+    let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
+    red_led.set_high().unwrap();
 
     usb_serial::init(
         peripherals.USB,
@@ -39,8 +40,23 @@ fn main() -> ! {
     );
 
     loop {
-        serial_print!("TEST\n");
+        //red_led.set_low().unwrap();
+        //delay.delay_ms(200u8);
+        //red_led.set_high().unwrap();
+        delay.delay_ms(5000u16);
 
-        delay.delay_ms(500u16);
+        cortex_m::interrupt::free(|_| unsafe {
+            let avail = usb_serial::recv_buf_len();
+
+            if avail > 0 {
+                let mut buf = [0; 256];
+
+                usb_serial::read_recv(&mut buf, avail);
+
+                let b = &buf[0..avail];
+
+                serial_print!(b);
+            }
+        });
     }
 }
