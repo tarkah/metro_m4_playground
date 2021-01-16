@@ -3,8 +3,6 @@
 [[package]]
 name = "adafruit-alphanum4"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cba8e3eca9d7b2b07d3b92b34605aa5b85392757da3af4faeea97c8af8327588"
 dependencies = [
  "ascii",
  "embedded-hal",
@@ -169,8 +167,6 @@ dependencies = [
 [[package]]
 name = "ht16k33"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "441cf21006638fc835d714f5feabc4a2a01efe783cf0997f387bf3aa185eaaa7"
 dependencies = [
  "bitflags",
  "embedded-hal",

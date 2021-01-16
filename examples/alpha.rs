@@ -12,9 +12,12 @@ use hal::{clock::GenericClockController, delay::Delay};
 use hal_ext::alphanum::{Display, MultiDisplay, DISP_I2C_ADDR};
 use hal_ext::usb_serial::{self, USB_BUS, USB_SERIAL};
 
+use core::cell::RefCell;
 use ht16k33::HT16K33;
 
-static mut BUFFER: [u8; 256] = [0; 256];
+const BUFFER_SIZE: usize = 512;
+static mut BUFFER: [u8; 512] = [0; 512];
+static mut WRITE_IDX: usize = 0;
 static mut BUFF_LEN: usize = 0;
 
 #[entry]
@@ -43,7 +46,7 @@ fn main() -> ! {
         &mut core.NVIC,
     );
 
-    let i2c = hal::i2c_master(
+    let i2c = RefCell::new(hal::i2c_master(
         &mut clocks,
         20.khz(),
         peripherals.SERCOM5,
@@ -51,23 +54,31 @@ fn main() -> ! {
         pins.sda,
         pins.scl,
         &mut pins.port,
-    );
+    ));
 
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
-    let mut displays = [HT16K33::new(i2c, DISP_I2C_ADDR)];
+    let mut displays = [
+        HT16K33::new(&i2c, DISP_I2C_ADDR),
+        HT16K33::new(&i2c, DISP_I2C_ADDR + 1),
+        HT16K33::new(&i2c, DISP_I2C_ADDR + 2),
+    ];
     let mut multidisplay = MultiDisplay::new(&mut displays);
+
+    let mut s = "";
 
     loop {
         cortex_m::interrupt::free(|_| unsafe {
             if BUFF_LEN > 0 {
-                let s = core::str::from_utf8_unchecked(&BUFFER[0..BUFF_LEN]);
-
-                multidisplay.marquee(s, &mut delay, Some(100), false);
+                s = core::str::from_utf8_unchecked(&BUFFER[0..BUFF_LEN]);
 
                 BUFF_LEN = 0;
             }
         });
+
+        if !s.is_empty() {
+            multidisplay.marquee(s, &mut delay, Some(200), true);
+        }
     }
 }
 
@@ -77,10 +88,31 @@ fn poll_usb() {
             USB_SERIAL.as_mut().map(|serial| {
                 if usb_dev.poll(&mut [serial]) {
                     // Make the other side happy
-                    let mut buf = [0u8; 256];
+                    let mut buf = [0u8; BUFFER_SIZE];
                     if let Ok(n) = serial.read(&mut buf) {
-                        BUFFER[0..n].swap_with_slice(&mut buf[0..n]);
-                        BUFF_LEN = n;
+                        let end = buf[n - 1] == 0;
+                        let through = if end { n - 1 } else { n };
+
+                        // Dont panic if we write more than buffer can hold
+                        // just return and display up till last value
+                        if WRITE_IDX + n >= BUFFER_SIZE {
+                            WRITE_IDX = 0;
+                            BUFF_LEN = BUFFER_SIZE;
+
+                            return;
+                        }
+
+                        if through > 0 {
+                            BUFFER[WRITE_IDX..WRITE_IDX + through]
+                                .swap_with_slice(&mut buf[0..through]);
+                        }
+
+                        if end {
+                            BUFF_LEN = WRITE_IDX + through;
+                            WRITE_IDX = 0;
+                        } else {
+                            WRITE_IDX += through;
+                        }
                     }
                 }
             });

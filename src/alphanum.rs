@@ -9,7 +9,7 @@ const MAX_DRIVERS: usize = 10;
 static mut BUFFER: [u8; MAX_DRIVERS * 4] = [0; MAX_DRIVERS * 4];
 
 pub struct MultiDisplay<'a, I2C> {
-    drivers: &'a mut [HT16K33<I2C>],
+    drivers: &'a mut [HT16K33<'a, I2C>],
 }
 
 impl<'a, I2C, E> MultiDisplay<'a, I2C>
@@ -17,7 +17,7 @@ where
     I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
     E: core::fmt::Debug,
 {
-    pub fn new(drivers: &'a mut [HT16K33<I2C>]) -> MultiDisplay<'a, I2C> {
+    pub fn new(drivers: &'a mut [HT16K33<'a, I2C>]) -> MultiDisplay<'a, I2C> {
         if drivers.len() > MAX_DRIVERS {
             panic!("Can't use more than 10 drivers with this struct")
         }
@@ -36,12 +36,12 @@ where
     }
 }
 
-pub trait Display<I2C, E>
+pub trait Display<'a, I2C, E>
 where
-    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
+    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E> + 'a,
     E: core::fmt::Debug,
 {
-    fn drivers(&mut self) -> &mut [HT16K33<I2C>];
+    fn drivers(&mut self) -> &mut [HT16K33<'a, I2C>];
 
     fn display(&mut self, buffer: &[u8]) {
         let drivers = self.drivers();
@@ -108,12 +108,12 @@ where
     }
 }
 
-impl<'a, I2C, E> Display<I2C, E> for MultiDisplay<'a, I2C>
+impl<'a, I2C, E> Display<'a, I2C, E> for MultiDisplay<'a, I2C>
 where
     I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
     E: core::fmt::Debug,
 {
-    fn drivers(&mut self) -> &mut [HT16K33<I2C>] {
+    fn drivers(&mut self) -> &mut [HT16K33<'a, I2C>] {
         self.drivers
     }
 }

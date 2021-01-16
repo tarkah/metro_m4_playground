@@ -12,8 +12,8 @@ embedded-hal = "0.2.4"
 metro_m4 = { version = "0.8", features = ['usb'] }
 
 # Alphanum display
-adafruit-alphanum4 = { version = "0.1.2", optional = true }
-ht16k33 = { version = "0.4.0", default-features = false, optional = true }
+adafruit-alphanum4 = { path = '../external/adafruit-alphanum4.rs', optional = true }
+ht16k33 = { path = '../external/ht16k33', default-features = false, optional = true }
 
 # USB Serial
 usb-device = { version = "0.2.5", optional = true }
