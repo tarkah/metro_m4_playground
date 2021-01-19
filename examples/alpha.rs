@@ -3,7 +3,7 @@
 
 use metro_m4 as hal;
 use metro_m4_ext as hal_ext;
-use panic_halt as _;
+use panic_semihosting as _;
 
 use hal::entry;
 use hal::pac::{interrupt, CorePeripherals, Peripherals};
@@ -16,7 +16,7 @@ use core::cell::RefCell;
 use ht16k33::HT16K33;
 
 const BUFFER_SIZE: usize = 512;
-static mut BUFFER: [u8; 512] = [0; 512];
+static mut BUFFER: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
 static mut WRITE_IDX: usize = 0;
 static mut BUFF_LEN: usize = 0;
 
@@ -32,9 +32,6 @@ fn main() -> ! {
         &mut peripherals.NVMCTRL,
     );
     let mut pins = hal::Pins::new(peripherals.PORT);
-
-    let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
-    red_led.set_low().unwrap();
 
     usb_serial::init(
         peripherals.USB,
@@ -65,19 +62,19 @@ fn main() -> ! {
     ];
     let mut multidisplay = MultiDisplay::new(&mut displays);
 
-    let mut s = "";
+    let mut text: Option<&str> = None;
 
     loop {
         cortex_m::interrupt::free(|_| unsafe {
             if BUFF_LEN > 0 {
-                s = core::str::from_utf8_unchecked(&BUFFER[0..BUFF_LEN]);
+                text = Some(core::str::from_utf8_unchecked(&BUFFER[0..BUFF_LEN]));
 
                 BUFF_LEN = 0;
             }
         });
 
-        if !s.is_empty() {
-            multidisplay.marquee(s, &mut delay, Some(200), true);
+        if let Some(text) = text {
+            multidisplay.marquee(text, &mut delay, Some(200), true);
         }
     }
 }
@@ -88,7 +85,7 @@ fn poll_usb() {
             USB_SERIAL.as_mut().map(|serial| {
                 if usb_dev.poll(&mut [serial]) {
                     // Make the other side happy
-                    let mut buf = [0u8; BUFFER_SIZE];
+                    let mut buf = [0u8; 128];
                     if let Ok(n) = serial.read(&mut buf) {
                         let end = buf[n - 1] == 0;
                         let through = if end { n - 1 } else { n };

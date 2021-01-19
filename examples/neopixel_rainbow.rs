@@ -2,7 +2,7 @@
 #![no_main]
 
 use metro_m4 as hal;
-use panic_halt as _;
+use panic_semihosting as _;
 use ws2812_timer_delay as ws2812;
 
 use hal::entry;

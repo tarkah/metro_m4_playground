@@ -3,13 +3,13 @@
 
 use metro_m4 as hal;
 use metro_m4_ext as hal_ext;
-use panic_halt as _;
+use panic_semihosting as _;
 
 use hal::entry;
 use hal::pac::{interrupt, CorePeripherals, Peripherals};
 use hal::prelude::*;
 use hal::{clock::GenericClockController, delay::Delay};
-use hal_ext::{serial_print, usb_serial};
+use hal_ext::{serial_print, serial_println, usb_serial};
 
 #[entry]
 fn main() -> ! {
@@ -39,13 +39,20 @@ fn main() -> ! {
         &mut core.NVIC,
     );
 
+    let mut n = 0u8;
+
     loop {
         red_led.set_low().unwrap();
         delay.delay_ms(200u8);
         red_led.set_high().unwrap();
         delay.delay_ms(200u8);
 
-        serial_print!(b"I'm working\n\r");
+        serial_print!(b"I'm working");
+
+        let num = &[n + 48][..];
+        serial_println!(num);
+
+        n = (n + 1) % 10;
     }
 }
 

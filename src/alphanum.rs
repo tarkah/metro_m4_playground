@@ -5,8 +5,8 @@ use ht16k33::HT16K33;
 use metro_m4::delay::Delay;
 
 pub const DISP_I2C_ADDR: u8 = 112;
+const LEDS_PER_DRIVER: usize = 4;
 const MAX_DRIVERS: usize = 10;
-static mut BUFFER: [u8; MAX_DRIVERS * 4] = [0; MAX_DRIVERS * 4];
 
 pub struct MultiDisplay<'a, I2C> {
     drivers: &'a mut [HT16K33<'a, I2C>],
@@ -20,11 +20,6 @@ where
     pub fn new(drivers: &'a mut [HT16K33<'a, I2C>]) -> MultiDisplay<'a, I2C> {
         if drivers.len() > MAX_DRIVERS {
             panic!("Can't use more than 10 drivers with this struct")
-        }
-
-        // Set entire buffer as empty (spaces)
-        unsafe {
-            BUFFER = [AsciiChar::Space as u8; MAX_DRIVERS * 4];
         }
 
         for driver in drivers.iter_mut() {
@@ -41,40 +36,51 @@ where
     I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E> + 'a,
     E: core::fmt::Debug,
 {
-    fn drivers(&mut self) -> &mut [HT16K33<'a, I2C>];
+    fn display(&mut self, buffer: &[u8]);
 
+    fn marquee(&mut self, text: &str, delay: &mut Delay, delay_ms: Option<u16>, clear_end: bool);
+}
+
+impl<'a, I2C, E> Display<'a, I2C, E> for MultiDisplay<'a, I2C>
+where
+    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
+    E: core::fmt::Debug,
+{
     fn display(&mut self, buffer: &[u8]) {
-        let drivers = self.drivers();
+        let drivers = self.drivers.as_mut();
 
-        for (n, b) in buffer.iter().enumerate() {
-            let index: Index = (n as u8 % 4).into();
+        for (n, buff) in buffer.chunks(LEDS_PER_DRIVER).enumerate() {
+            let driver = drivers.get_mut(n).unwrap();
 
-            let ascii = if b.is_ascii() {
-                unsafe { AsciiChar::from_ascii_unchecked(*b) }
-            } else {
-                AsciiChar::Space
-            };
+            for (idx, b) in buff.iter().enumerate() {
+                let index: Index = (idx as u8).into();
 
-            let driver = &mut drivers[n / 4];
+                let ascii = if b.is_ascii() {
+                    unsafe { AsciiChar::from_ascii_unchecked(*b) }
+                } else {
+                    AsciiChar::Space
+                };
 
-            driver.update_buffer_with_char(index, ascii);
-        }
+                driver.update_buffer_with_char(index, ascii);
+            }
 
-        for driver in drivers.iter_mut() {
-            driver.write_display_buffer().unwrap();
+            let _ = driver.write_display_buffer();
         }
     }
 
     fn marquee(&mut self, text: &str, delay: &mut Delay, delay_ms: Option<u16>, clear_end: bool) {
-        let num_drivers = self.drivers().len();
-        let num_leds = num_drivers * 4;
+        let num_drivers = self.drivers.len();
+        let num_leds = num_drivers * LEDS_PER_DRIVER;
 
-        let buffer = unsafe { &mut BUFFER[0..num_leds] };
+        let mut buffer = [AsciiChar::Space as u8; MAX_DRIVERS * LEDS_PER_DRIVER];
 
         let bytes = text.as_bytes();
 
         for b in bytes {
-            self.write_scroll(*b, buffer);
+            shift_left_and_insert_last(*b, &mut buffer[0..num_leds]);
+
+            // Display buffer
+            self.display(&mut buffer[0..num_leds]);
 
             // Wait ms before scrolling
             if let Some(ms) = delay_ms {
@@ -84,7 +90,10 @@ where
 
         if clear_end {
             for _ in 0..num_leds {
-                self.write_scroll(32, buffer);
+                shift_left_and_insert_last(32, &mut buffer[0..num_leds]);
+
+                // Display buffer
+                self.display(&mut buffer[0..num_leds]);
 
                 // Wait ms before scrolling
                 if let Some(ms) = delay_ms {
@@ -93,27 +102,14 @@ where
             }
         }
     }
-
-    fn write_scroll(&mut self, b: u8, buffer: &mut [u8]) {
-        // Shift all bytes in buf to the left
-        for n in 1..buffer.len() {
-            buffer.swap(n - 1, n);
-        }
-
-        // Update last byte
-        buffer[buffer.len() - 1] = b;
-
-        // Display buffer
-        self.display(buffer);
-    }
 }
 
-impl<'a, I2C, E> Display<'a, I2C, E> for MultiDisplay<'a, I2C>
-where
-    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
-    E: core::fmt::Debug,
-{
-    fn drivers(&mut self) -> &mut [HT16K33<'a, I2C>] {
-        self.drivers
+fn shift_left_and_insert_last(b: u8, buffer: &mut [u8]) {
+    // Shift all bytes in buf to the left
+    for n in 1..buffer.len() {
+        buffer.swap(n - 1, n);
     }
+
+    // Update last byte
+    buffer[buffer.len() - 1] = b;
 }

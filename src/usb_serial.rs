@@ -15,29 +15,29 @@ pub static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
 
 #[macro_export]
 macro_rules! serial_println {
-    ($str: tt) => {{
+    ($x: expr) => {
         cortex_m::interrupt::free(|_| unsafe {
             $crate::usb_serial::USB_BUS.as_mut().map(|_| {
                 $crate::usb_serial::USB_SERIAL.as_mut().map(|serial| {
-                    let _ = serial.write($str);
+                    let _ = serial.write($x);
                     let _ = serial.write(b"\n\r");
                 });
             })
         });
-    }};
+    };
 }
 
 #[macro_export]
 macro_rules! serial_print {
-    ($str: tt) => {{
+    ($x: expr) => {
         cortex_m::interrupt::free(|_| unsafe {
             $crate::usb_serial::USB_BUS.as_mut().map(|_| {
                 $crate::usb_serial::USB_SERIAL.as_mut().map(|serial| {
-                    let _ = serial.write($str);
+                    let _ = serial.write($x);
                 });
             })
         });
-    }};
+    };
 }
 
 pub fn init(
@@ -85,7 +85,7 @@ pub fn default_poll_usb() {
             USB_SERIAL.as_mut().map(|serial| {
                 if usb_dev.poll(&mut [serial]) {
                     // Make the other side happy
-                    let mut buf = [0u8; 256];
+                    let mut buf = [0u8; 128];
                     let _ = serial.read(&mut buf);
                 }
             });
