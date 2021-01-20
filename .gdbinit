@@ -15,6 +15,3 @@ monitor semihosting IOClient 3
 
 monitor reset
 load
-
-# start the process but immediately halt the processor
-stepi

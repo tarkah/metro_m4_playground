@@ -9,7 +9,7 @@ const LEDS_PER_DRIVER: usize = 4;
 const MAX_DRIVERS: usize = 10;
 
 pub struct MultiDisplay<'a, I2C> {
-    drivers: &'a mut [HT16K33<'a, I2C>],
+    drivers: &'a mut [HT16K33<I2C>],
 }
 
 impl<'a, I2C, E> MultiDisplay<'a, I2C>
@@ -17,7 +17,7 @@ where
     I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
     E: core::fmt::Debug,
 {
-    pub fn new(drivers: &'a mut [HT16K33<'a, I2C>]) -> MultiDisplay<'a, I2C> {
+    pub fn new(drivers: &'a mut [HT16K33<I2C>]) -> MultiDisplay<'a, I2C> {
         if drivers.len() > MAX_DRIVERS {
             panic!("Can't use more than 10 drivers with this struct")
         }

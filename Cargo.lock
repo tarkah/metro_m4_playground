@@ -3,6 +3,8 @@
 [[package]]
 name = "adafruit-alphanum4"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cba8e3eca9d7b2b07d3b92b34605aa5b85392757da3af4faeea97c8af8327588"
 dependencies = [
  "ascii",
  "embedded-hal",
@@ -176,6 +178,8 @@ dependencies = [
 [[package]]
 name = "ht16k33"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "441cf21006638fc835d714f5feabc4a2a01efe783cf0997f387bf3aa185eaaa7"
 dependencies = [
  "bitflags",
  "embedded-hal",
@@ -203,12 +207,14 @@ dependencies = [
  "adafruit-alphanum4",
  "cortex-m",
  "cortex-m-rt",
+ "cortex-m-semihosting",
  "embedded-hal",
  "ht16k33",
  "metro_m4",
  "nb 0.1.3",
  "panic-halt",
  "panic-semihosting",
+ "shared-bus",
  "smart-leds",
  "usb-device",
  "usbd-serial",
@@ -314,6 +320,16 @@ name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
+
+[[package]]
+name = "shared-bus"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f42e140835229dea9c0b2498d2c88afe52ed2bd42a7cc6068c95adb5134b541"
+dependencies = [
+ "cortex-m",
+ "embedded-hal",
+]
 
 [[package]]
 name = "smart-leds"

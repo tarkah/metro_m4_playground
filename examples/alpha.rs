@@ -5,26 +5,29 @@ use metro_m4 as hal;
 use metro_m4_ext as hal_ext;
 use panic_semihosting as _;
 
+use hal::clock::GenericClockController;
+use hal::delay::Delay;
 use hal::entry;
+use hal::gpio;
 use hal::pac::{interrupt, CorePeripherals, Peripherals};
 use hal::prelude::*;
-use hal::{clock::GenericClockController, delay::Delay};
+use hal::sercom::I2CMaster5;
 use hal_ext::alphanum::{Display, MultiDisplay, DISP_I2C_ADDR};
 use hal_ext::usb_serial::{self, USB_BUS, USB_SERIAL};
 
-use core::cell::RefCell;
 use ht16k33::HT16K33;
+use shared_bus::new_cortexm;
 
 const BUFFER_SIZE: usize = 512;
 static mut BUFFER: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
-static mut WRITE_IDX: usize = 0;
 static mut BUFF_LEN: usize = 0;
+static mut WRITE_IDX: usize = 0;
 
 #[entry]
 fn main() -> ! {
     let mut peripherals = Peripherals::take().unwrap();
     let mut core = CorePeripherals::take().unwrap();
-    let mut clocks = GenericClockController::with_internal_32kosc(
+    let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.MCLK,
         &mut peripherals.OSC32KCTRL,
@@ -43,37 +46,47 @@ fn main() -> ! {
         &mut core.NVIC,
     );
 
-    let i2c = RefCell::new(hal::i2c_master(
+    let i2c = hal::i2c_master(
         &mut clocks,
-        20.khz(),
+        400.khz(),
         peripherals.SERCOM5,
         &mut peripherals.MCLK,
         pins.sda,
         pins.scl,
         &mut pins.port,
-    ));
+    );
+
+    let shared_bus = new_cortexm!(I2CMaster5<
+        hal::sercom::Sercom5Pad0<gpio::Pb2<gpio::PfD>>,
+        hal::sercom::Sercom5Pad1<gpio::Pb3<gpio::PfD>>,
+    > = i2c)
+    .unwrap();
 
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
     let mut displays = [
-        HT16K33::new(&i2c, DISP_I2C_ADDR),
-        HT16K33::new(&i2c, DISP_I2C_ADDR + 1),
-        HT16K33::new(&i2c, DISP_I2C_ADDR + 2),
+        HT16K33::new(shared_bus.acquire_i2c(), DISP_I2C_ADDR),
+        HT16K33::new(shared_bus.acquire_i2c(), DISP_I2C_ADDR + 1),
+        HT16K33::new(shared_bus.acquire_i2c(), DISP_I2C_ADDR + 2),
     ];
     let mut multidisplay = MultiDisplay::new(&mut displays);
 
-    let mut text: Option<&str> = None;
+    let mut text_buf: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+    let mut text_len = 0usize;
 
     loop {
         cortex_m::interrupt::free(|_| unsafe {
             if BUFF_LEN > 0 {
-                text = Some(core::str::from_utf8_unchecked(&BUFFER[0..BUFF_LEN]));
+                text_buf = BUFFER;
+                text_len = BUFF_LEN;
 
                 BUFF_LEN = 0;
             }
         });
 
-        if let Some(text) = text {
+        if text_len > 0 {
+            let text = unsafe { core::str::from_utf8_unchecked(&text_buf[0..text_len]) };
+
             multidisplay.marquee(text, &mut delay, Some(200), true);
         }
     }

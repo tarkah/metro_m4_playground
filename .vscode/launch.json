@@ -9,12 +9,20 @@
             "request": "launch",
             "servertype": "jlink",
             "name": "Attach to gdbserver",
-            "executable": "./target/thumbv7em-none-eabihf/release/examples/alpha",
+            "executable": "./target/thumbv7em-none-eabihf/debug/examples/alpha",
             "serverpath": "/opt/jlink/JLinkGDBServer",
             "cwd": "${workspaceRoot}",
             "runToMain": true,
             "device": "atsamd51j19",
-            "armToolchainPath": "/usr/bin"
+            "armToolchainPath": "/usr/bin",
+            "preLaunchCommands": [
+                "set print asm-demangle on",
+                "break DefaultHandler",
+                "break HardFault",
+                "break rust_begin_unwind",
+                "monitor semihosting enable",
+                "monitor semihosting IOClient 3"
+            ]
         }
     ]
 }

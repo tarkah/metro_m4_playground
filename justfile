@@ -25,4 +25,4 @@ flash-rainbow:
     cargo hf2 --example neopixel_rainbow --release
 
 jlink:
-    DISPLAY=:0.0 JLinkGDBServer -if SWD -device atsamd51j19a
+    JLinkGDBServer -if SWD -device atsamd51j19a
