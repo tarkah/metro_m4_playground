@@ -1,7 +1,7 @@
 #set shell := ["cmd.exe", "/c"]
 
 check:
-    cargo check --all-targets --features usb_serial,alphanum
+    cargo check --features usb_serial,alphanum --examples --lib
 
 debug-serial:
     cargo build --example serial --features usb_serial
