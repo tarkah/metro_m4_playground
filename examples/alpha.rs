@@ -3,6 +3,10 @@
 
 use metro_m4 as hal;
 use metro_m4_ext as hal_ext;
+
+#[cfg(not(debug_assertions))]
+use panic_halt as _;
+#[cfg(debug_assertions)]
 use panic_semihosting as _;
 
 use hal::clock::GenericClockController;
@@ -15,6 +19,11 @@ use hal::sercom::I2CMaster5;
 use hal_ext::alphanum::{Display, MultiDisplay, DISP_I2C_ADDR};
 use hal_ext::usb_serial::{self, USB_BUS, USB_SERIAL};
 
+#[cfg(debug_assertions)]
+use cortex_m_log::log::{trick_init, Logger};
+#[cfg(debug_assertions)]
+use cortex_m_log::printer::semihosting;
+
 use ht16k33::HT16K33;
 use shared_bus::new_cortexm;
 
@@ -25,6 +34,18 @@ static mut WRITE_IDX: usize = 0;
 
 #[entry]
 fn main() -> ! {
+    #[cfg(debug_assertions)]
+    {
+        let logger = Logger {
+            inner: semihosting::InterruptOk::<_>::stdout().unwrap(),
+            level: log::LevelFilter::Info,
+        };
+
+        unsafe {
+            let _ = trick_init(&logger);
+        }
+    }
+
     let mut peripherals = Peripherals::take().unwrap();
     let mut core = CorePeripherals::take().unwrap();
     let mut clocks = GenericClockController::with_external_32kosc(
@@ -62,14 +83,15 @@ fn main() -> ! {
     > = i2c)
     .unwrap();
 
-    let mut delay = Delay::new(core.SYST, &mut clocks);
-
-    let mut displays = [
+    let displays = [
         HT16K33::new(shared_bus.acquire_i2c(), DISP_I2C_ADDR),
         HT16K33::new(shared_bus.acquire_i2c(), DISP_I2C_ADDR + 1),
         HT16K33::new(shared_bus.acquire_i2c(), DISP_I2C_ADDR + 2),
     ];
-    let mut multidisplay = MultiDisplay::new(&mut displays);
+
+    let mut multidisplay = MultiDisplay::new(displays);
+
+    let mut delay = Delay::new(core.SYST, &mut clocks);
 
     let mut text_buf: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
     let mut text_len = 0usize;
@@ -84,10 +106,14 @@ fn main() -> ! {
             }
         });
 
-        if text_len > 0 {
-            let text = unsafe { core::str::from_utf8_unchecked(&text_buf[0..text_len]) };
+        //if text_len > 0 {
+        if 1 == 1 {
+            let text = "TESTING, TESTING, 1, 2, 3"; //core::str::from_utf8_unchecked(&text_buf[0..text_len]);
 
-            multidisplay.marquee(text, &mut delay, Some(200), true);
+            if let Err(e) = multidisplay.marquee(text, &mut delay, 200u8, true) {
+                #[cfg(debug_assertions)]
+                log::error!("{:?}", e);
+            }
         }
     }
 }

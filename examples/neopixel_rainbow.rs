@@ -2,8 +2,12 @@
 #![no_main]
 
 use metro_m4 as hal;
-use panic_semihosting as _;
 use ws2812_timer_delay as ws2812;
+
+#[cfg(not(debug_assertions))]
+use panic_halt as _;
+#[cfg(debug_assertions)]
+use panic_semihosting as _;
 
 use hal::entry;
 use hal::pac::{CorePeripherals, Peripherals};
@@ -21,7 +25,7 @@ use smart_leds::{
 fn main() -> ! {
     let mut peripherals = Peripherals::take().unwrap();
     let core = CorePeripherals::take().unwrap();
-    let mut clocks = GenericClockController::with_internal_32kosc(
+    let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.MCLK,
         &mut peripherals.OSC32KCTRL,

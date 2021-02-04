@@ -9,7 +9,7 @@
             "request": "launch",
             "servertype": "jlink",
             "name": "Attach to gdbserver",
-            "executable": "./target/thumbv7em-none-eabihf/debug/examples/alpha",
+            "executable": "./target/thumbv7em-none-eabihf/debug/examples/clock",
             "serverpath": "/opt/jlink/JLinkGDBServer",
             "cwd": "${workspaceRoot}",
             "runToMain": true,
@@ -22,7 +22,9 @@
                 "break rust_begin_unwind",
                 "monitor semihosting enable",
                 "monitor semihosting IOClient 3"
-            ]
+            ],
+            "svdFile": "${workspaceRoot}/ATSAMD51J19A.svd",
+            "preLaunchTask": "build clock",
         }
     ]
 }

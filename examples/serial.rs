@@ -3,6 +3,10 @@
 
 use metro_m4 as hal;
 use metro_m4_ext as hal_ext;
+
+#[cfg(not(debug_assertions))]
+use panic_halt as _;
+#[cfg(debug_assertions)]
 use panic_semihosting as _;
 
 use hal::entry;
@@ -15,7 +19,7 @@ use hal_ext::{serial_print, serial_println, usb_serial};
 fn main() -> ! {
     let mut peripherals = Peripherals::take().unwrap();
     let mut core = CorePeripherals::take().unwrap();
-    let mut clocks = GenericClockController::with_internal_32kosc(
+    let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.MCLK,
         &mut peripherals.OSC32KCTRL,

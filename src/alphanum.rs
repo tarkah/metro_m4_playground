@@ -2,22 +2,21 @@ use adafruit_alphanum4::{AlphaNum4, AsciiChar, Index};
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c;
 use ht16k33::HT16K33;
-use metro_m4::delay::Delay;
 
 pub const DISP_I2C_ADDR: u8 = 112;
 const LEDS_PER_DRIVER: usize = 4;
 const MAX_DRIVERS: usize = 10;
 
-pub struct MultiDisplay<'a, I2C> {
-    drivers: &'a mut [HT16K33<I2C>],
+pub struct MultiDisplay<I2C, const N: usize> {
+    drivers: [HT16K33<I2C>; N],
 }
 
-impl<'a, I2C, E> MultiDisplay<'a, I2C>
+impl<'a, I2C, E, const N: usize> MultiDisplay<I2C, N>
 where
     I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
     E: core::fmt::Debug,
 {
-    pub fn new(drivers: &'a mut [HT16K33<I2C>]) -> MultiDisplay<'a, I2C> {
+    pub fn new(mut drivers: [HT16K33<I2C>; N]) -> MultiDisplay<I2C, N> {
         if drivers.len() > MAX_DRIVERS {
             panic!("Can't use more than 10 drivers with this struct")
         }
@@ -27,26 +26,36 @@ where
             driver.set_display(ht16k33::Display::ON).unwrap();
         }
 
+        log::info!("{} drivers initialized", drivers.len());
+
         MultiDisplay { drivers }
     }
 }
 
-pub trait Display<'a, I2C, E>
+pub trait Display<E>
 where
-    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E> + 'a,
     E: core::fmt::Debug,
 {
-    fn display(&mut self, buffer: &[u8]);
+    fn display(&mut self, buffer: &[u8], enable_dot: Option<&[bool]>) -> Result<(), E>;
 
-    fn marquee(&mut self, text: &str, delay: &mut Delay, delay_ms: Option<u16>, clear_end: bool);
+    fn marquee<Delay, UXX>(
+        &mut self,
+        text: &str,
+        delay: &mut Delay,
+        delay_ms: UXX,
+        clear_end: bool,
+    ) -> Result<(), E>
+    where
+        Delay: DelayMs<UXX>,
+        UXX: Copy;
 }
 
-impl<'a, I2C, E> Display<'a, I2C, E> for MultiDisplay<'a, I2C>
+impl<I2C, E, const N: usize> Display<E> for MultiDisplay<I2C, N>
 where
     I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
     E: core::fmt::Debug,
 {
-    fn display(&mut self, buffer: &[u8]) {
+    fn display(&mut self, buffer: &[u8], enable_dot: Option<&[bool]>) -> Result<(), E> {
         let drivers = self.drivers.as_mut();
 
         for (n, buff) in buffer.chunks(LEDS_PER_DRIVER).enumerate() {
@@ -62,13 +71,35 @@ where
                 };
 
                 driver.update_buffer_with_char(index, ascii);
+
+                if let Some(dot_flags) = enable_dot {
+                    let flag_idx = n * 4 + idx;
+
+                    let enable = dot_flags[flag_idx];
+
+                    if enable {
+                        driver.update_buffer_with_dot(index, true);
+                    }
+                }
             }
 
-            let _ = driver.write_display_buffer();
+            driver.write_display_buffer()?;
         }
+
+        Ok(())
     }
 
-    fn marquee(&mut self, text: &str, delay: &mut Delay, delay_ms: Option<u16>, clear_end: bool) {
+    fn marquee<Delay, UXX>(
+        &mut self,
+        text: &str,
+        delay: &mut Delay,
+        delay_ms: UXX,
+        clear_end: bool,
+    ) -> Result<(), E>
+    where
+        Delay: DelayMs<UXX>,
+        UXX: Copy,
+    {
         let num_drivers = self.drivers.len();
         let num_leds = num_drivers * LEDS_PER_DRIVER;
 
@@ -80,12 +111,10 @@ where
             shift_left_and_insert_last(*b, &mut buffer[0..num_leds]);
 
             // Display buffer
-            self.display(&mut buffer[0..num_leds]);
+            self.display(&mut buffer[0..num_leds], None)?;
 
             // Wait ms before scrolling
-            if let Some(ms) = delay_ms {
-                delay.delay_ms(ms);
-            }
+            delay.delay_ms(delay_ms);
         }
 
         if clear_end {
@@ -93,14 +122,14 @@ where
                 shift_left_and_insert_last(32, &mut buffer[0..num_leds]);
 
                 // Display buffer
-                self.display(&mut buffer[0..num_leds]);
+                self.display(&mut buffer[0..num_leds], None)?;
 
                 // Wait ms before scrolling
-                if let Some(ms) = delay_ms {
-                    delay.delay_ms(ms);
-                }
+                delay.delay_ms(delay_ms);
             }
         }
+
+        Ok(())
     }
 }
 
